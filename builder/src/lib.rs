@@ -12,6 +12,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
     // let fields = parse_macro_input!(input as FieldsNamed).named;
 
     let expanded = quote! {
+        use std::error::Error;
         impl #object_name {
             pub fn builder() -> #builder_data {
                 #builder_data {
@@ -50,7 +51,20 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 self.current_dir = Some(current_dir);
                 self
             }
+
+            pub fn build(self) -> Result<#object_name, Box<dyn Error>> {
+                if (self.executable.is_some() && self.args.is_some() && self.env.is_some() && self.current_dir.is_some()) {
+                    return Ok(#object_name {
+                        executable: self.executable.unwrap(),
+                        args: self.args.unwrap(),
+                        env: self.env.unwrap(),
+                        current_dir: self.current_dir.unwrap()
+                    })
+                }
+                Err("all fields are required".into())
+            }
         }
     };
+    // eprintln!("TOKENS: {}", expanded);
     TokenStream::from(expanded)
 }
