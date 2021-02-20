@@ -52,13 +52,13 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 self
             }
 
-            pub fn build(self) -> Result<#object_name, Box<dyn Error>> {
+            pub fn build(&mut self) -> Result<#object_name, Box<dyn Error>> {
                 if (self.executable.is_some() && self.args.is_some() && self.env.is_some() && self.current_dir.is_some()) {
                     return Ok(#object_name {
-                        executable: self.executable.unwrap(),
-                        args: self.args.unwrap(),
-                        env: self.env.unwrap(),
-                        current_dir: self.current_dir.unwrap()
+                        executable: self.executable.as_ref().unwrap().clone(),
+                        args: self.args.as_ref().unwrap().clone(),
+                        env: self.env.as_ref().unwrap().clone(),
+                        current_dir: self.current_dir.as_ref().unwrap().clone()
                     })
                 }
                 Err("all fields are required".into())
