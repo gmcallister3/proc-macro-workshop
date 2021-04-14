@@ -1,21 +1,55 @@
 extern crate proc_macro;
 
-use proc_macro::TokenStream;
 use quote::{quote, format_ident};
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, DeriveInput, Data, Expr, Fields};
 
 #[proc_macro_derive(Builder)]
-pub fn derive(input: TokenStream) -> TokenStream {
-    let _ = input;
-    let object_name = parse_macro_input!(input as DeriveInput).ident;
-    let builder_data = format_ident!("{}Builder", object_name);
+pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let syn_tree = parse_macro_input!(input as DeriveInput);
+    let exp_tree = parse_macro_input!(input as Expr);
+    let object_name = syn_tree.ident;
+    let builder_name = format_ident!("{}Builder", object_name);
+    // println!("tree {}", syn_tree.data);
     // let fields = parse_macro_input!(input as FieldsNamed).named;
+
+    //dynamically generate builder data based on input fields
+    //dynamically generate build() to handle either Option<> or non-option fields
+
+    // let test_builder = match exp_tree {
+    //     Expr::Path(path) => {
+    //         path.path.segments
+    //     }
+    //     _ => {}
+    // }
+
+    let builder_code = match syn_tree.data {
+        Data::Struct(data) => {
+            match data.fields {
+                Fields::Named(fields) => {
+                    let field_tokens = fields.named.iter().map(|field| {
+                        let field_name = field.ident.unwrap();
+                        return quote! {
+                            #field_name: Option<#field.ty>,
+                        }
+                    });
+
+                    quote! {
+                        pub struct #builder_name {
+                            #(#field_tokens)*
+                        }
+                    }
+                }
+                _ => unimplemented!("Doesn't support unnamed fields.")
+            }
+        }
+        _ => unimplemented!("Builder macro on non-struct code.")
+    };
 
     let expanded = quote! {
         use std::error::Error;
         impl #object_name {
-            pub fn builder() -> #builder_data {
-                #builder_data {
+            pub fn builder() -> #builder_name {
+                #builder_name {
                     executable: None,
                     args: None,
                     env: None,
@@ -24,14 +58,9 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         }
 
-        pub struct #builder_data {
-            executable: Option<String>,
-            args: Option<Vec<String>>,
-            env: Option<Vec<String>>,
-            current_dir: Option<String>
-        }
+        #builder_code
 
-        impl #builder_data {
+        impl #builder_name {
             pub fn executable(&mut self, executable: String) -> &mut Self {
                 self.executable = Some(executable);
                 self
@@ -65,6 +94,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         }
     };
-    // eprintln!("TOKENS: {}", expanded);
-    TokenStream::from(expanded)
+    eprintln!("TOKENS: {}", expanded);
+    expanded.into()
 }
